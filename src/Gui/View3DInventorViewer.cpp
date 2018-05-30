@@ -120,6 +120,7 @@
 #include <Quarter/eventhandlers/EventFilter.h>
 #include <Quarter/devices/InputDevice.h>
 #include "View3DViewerPy.h"
+#include <Gui/NaviCube.h>
 
 #include <Inventor/draggers/SoCenterballDragger.h>
 #include <Inventor/annex/Profiler/SoProfiler.h>
@@ -213,8 +214,6 @@ class Gui::ViewerEventFilter : public QObject
 public:
     ViewerEventFilter() {}
     ~ViewerEventFilter() {}
-
-
 
     bool eventFilter(QObject* obj, QEvent* event) {
 
@@ -333,6 +332,7 @@ public:
 
 
 // *************************************************************************
+
 View3DInventorViewer::View3DInventorViewer(QWidget* parent, const QtGLWidget* sharewidget)
     : Quarter::SoQTQuarterAdaptor(parent, sharewidget), editViewProvider(0), navigation(0),
       renderType(Native), framebuffer(0), axisCross(0), axisGroup(0), editing(false), redirected(false),
@@ -533,10 +533,15 @@ void View3DInventorViewer::init()
     cursor = QBitmap::fromData(QSize(PAN_WIDTH, PAN_HEIGHT), pan_bitmap);
     mask = QBitmap::fromData(QSize(PAN_WIDTH, PAN_HEIGHT), pan_mask_bitmap);
     panCursor = QCursor(cursor, mask, PAN_HOT_X, PAN_HOT_Y);
+    naviCube = new NaviCube(this);
+    naviCubeEnabled = true;
 }
 
 View3DInventorViewer::~View3DInventorViewer()
 {
+    // to prevent following OpenGL error message: "Texture is not valid in the current context. Texture has not been destroyed"
+    aboutToDestroyGLContext();
+
     // cleanup
     this->backgroundroot->unref();
     this->backgroundroot = 0;
@@ -567,6 +572,18 @@ View3DInventorViewer::~View3DInventorViewer()
     if (_viewerPy) {
         static_cast<View3DInventorViewerPy*>(_viewerPy)->_viewer = 0;
         Py_DECREF(_viewerPy);
+    }
+}
+
+void View3DInventorViewer::aboutToDestroyGLContext()
+{
+    if (naviCube) {
+        QtGLWidget* gl = qobject_cast<QtGLWidget*>(this->viewport());
+        if (gl)
+            gl->makeCurrent();
+        delete naviCube;
+        naviCube = 0;
+        naviCubeEnabled = false;
     }
 }
 
@@ -601,6 +618,10 @@ void View3DInventorViewer::OnChange(Gui::SelectionSingleton::SubjectType& rCalle
         Reason.Type == SelectionChanges::SetSelection ||
         Reason.Type == SelectionChanges::ClrSelection) {
         SoFCSelectionAction cAct(Reason);
+        cAct.apply(pcViewProviderRoot);
+    }
+    else if (Reason.Type == SelectionChanges::RmvPreselect) {
+        SoFCHighlightAction cAct(Reason);
         cAct.apply(pcViewProviderRoot);
     }
 }
@@ -818,6 +839,22 @@ bool View3DInventorViewer::isEnabledVBO() const
     return vboEnabled;
 }
 
+void View3DInventorViewer::setEnabledNaviCube(bool on)
+{
+    naviCubeEnabled = on;
+}
+
+bool View3DInventorViewer::isEnabledNaviCube(void) const
+{
+    return naviCubeEnabled;
+}
+
+void View3DInventorViewer::setNaviCubeCorner(int c)
+{
+    if (naviCube)
+        naviCube->setCorner(static_cast<NaviCube::Corner>(c));
+}
+
 void View3DInventorViewer::setAxisCross(bool on)
 {
     SoNode* scene = getSceneGraph();
@@ -922,19 +959,34 @@ void View3DInventorViewer::setSceneGraph(SoNode* root)
     }
 }
 
-void View3DInventorViewer::savePicture(int w, int h, const QColor& bg, QImage& img) const
+void View3DInventorViewer::savePicture(int w, int h, int s, const QColor& bg, QImage& img) const
 {
-    // If 'QGLPixelBuffer::hasOpenGLPbuffers()' returns false then
-    // SoQtOffscreenRenderer won't work. In this case we try to use
-    // Coin's implementation of the off-screen rendering.
-#if !defined(HAVE_QT5_OPENGL)
-    bool useCoinOffscreenRenderer = !QGLPixelBuffer::hasOpenGLPbuffers();
-#else
+    // Save picture methods:
+    // FramebufferObject -- viewer renders into FBO (no offscreen)
+    // CoinOffscreenRenderer -- Coin's offscreen rendering method
+    // PixelBuffer -- Qt's pixel buffer used for offscreen rendering (only Qt4)
+    // Otherwise (Default) -- Qt's FBO used for offscreen rendering
+    std::string saveMethod = App::GetApplication().GetParameterGroupByPath
+        ("User parameter:BaseApp/Preferences/View")->GetASCII("SavePicture");
+
+    bool useFramebufferObject = false;
+    bool usePixelBuffer = false;
     bool useCoinOffscreenRenderer = false;
-#endif
-    useCoinOffscreenRenderer = App::GetApplication().GetParameterGroupByPath
-        ("User parameter:BaseApp/Preferences/Document")->
-        GetBool("CoinOffscreenRenderer", useCoinOffscreenRenderer);
+    if (saveMethod == "FramebufferObject") {
+        useFramebufferObject = true;
+    }
+    else if (saveMethod == "PixelBuffer") {
+        usePixelBuffer = true;
+    }
+    else if (saveMethod == "CoinOffscreenRenderer") {
+        useCoinOffscreenRenderer = true;
+    }
+
+    if (useFramebufferObject) {
+        View3DInventorViewer* self = const_cast<View3DInventorViewer*>(this);
+        self->imageFromFramebuffer(w, h, s, bg, img);
+        return;
+    }
 
     // if no valid color use the current background
     bool useBackground = false;
@@ -1011,7 +1063,8 @@ void View3DInventorViewer::savePicture(int w, int h, const QColor& bg, QImage& i
         // render the scene
         if (!useCoinOffscreenRenderer) {
             SoQtOffscreenRenderer renderer(vp);
-            renderer.setNumPasses(4);
+            renderer.setNumPasses(s);
+            renderer.setPbufferEnable(usePixelBuffer);
             if (bgColor.isValid())
                 renderer.setBackgroundColor(SbColor4f(bgColor.redF(), bgColor.greenF(), bgColor.blueF(), bgColor.alphaF()));
             if (!renderer.render(root))
@@ -1023,6 +1076,8 @@ void View3DInventorViewer::savePicture(int w, int h, const QColor& bg, QImage& i
         else {
             SoFCOffscreenRenderer& renderer = SoFCOffscreenRenderer::instance();
             renderer.setViewportRegion(vp);
+            renderer.getGLRenderAction()->setSmoothing(true);
+            renderer.getGLRenderAction()->setNumPasses(s);
             if (bgColor.isValid())
                 renderer.setBackgroundColor(SbColor(bgColor.redF(), bgColor.greenF(), bgColor.blueF()));
             if (!renderer.render(root))
@@ -1407,6 +1462,71 @@ QImage View3DInventorViewer::grabFramebuffer()
     return res;
 }
 
+void View3DInventorViewer::imageFromFramebuffer(int width, int height, int samples,
+                                                const QColor& bgcolor, QImage& img)
+{
+    QtGLWidget* gl = static_cast<QtGLWidget*>(this->viewport());
+    gl->makeCurrent();
+
+    const QtGLContext* context = QtGLContext::currentContext();
+    if (!context) {
+        Base::Console().Warning("imageFromFramebuffer failed because no context is active\n");
+        return;
+    }
+
+    QtGLFramebufferObjectFormat fboFormat;
+    fboFormat.setSamples(samples);
+    fboFormat.setAttachment(QtGLFramebufferObject::Depth);
+    // With enabled alpha a transparent background is supported but
+    // at the same time breaks semi-transparent models. A workaround
+    // is to use a certain background color using GL_RGB as texture
+    // format and in the output image search for the above color and
+    // replaces it with the color requested by the user.
+#if defined(HAVE_QT5_OPENGL)
+    //fboFormat.setInternalTextureFormat(GL_RGBA32F_ARB);
+    fboFormat.setInternalTextureFormat(GL_RGB32F_ARB);
+#else
+    //fboFormat.setInternalTextureFormat(GL_RGBA);
+    fboFormat.setInternalTextureFormat(GL_RGB);
+#endif
+    QtGLFramebufferObject fbo(width, height, fboFormat);
+
+    const QColor col = backgroundColor();
+    bool on = hasGradientBackground();
+
+    int alpha = 255;
+    QColor bgopaque = bgcolor;
+    if (bgopaque.isValid()) {
+        // force an opaque background color
+        alpha = bgopaque.alpha();
+        if (alpha < 255)
+            bgopaque.setRgb(255,255,255);
+        setBackgroundColor(bgopaque);
+        setGradientBackground(false);
+    }
+
+    renderToFramebuffer(&fbo);
+    setBackgroundColor(col);
+    setGradientBackground(on);
+    img = fbo.toImage();
+
+    // if background color isn't opaque manipulate the image
+    if (alpha < 255) {
+        QImage image(img.constBits(), img.width(), img.height(), QImage::Format_ARGB32);
+        img = image.copy();
+        QRgb rgba = bgcolor.rgba();
+        QRgb rgb = bgopaque.rgb();
+        QRgb * bits = (QRgb*) img.bits();
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                if (*bits == rgb)
+                    *bits = rgba;
+                bits++;
+            }
+        }
+    }
+}
+
 void View3DInventorViewer::renderToFramebuffer(QtGLFramebufferObject* fbo)
 {
     static_cast<QtGLWidget*>(this->viewport())->makeCurrent();
@@ -1645,6 +1765,9 @@ void View3DInventorViewer::renderScene(void)
         draw2DString(stream.str().c_str(), SbVec2s(10,10), SbVec2f(0.1f,0.1f));
     }
 
+    if (naviCubeEnabled)
+        naviCube->drawNaviCube();
+
 #if 0 // this breaks highlighting of edges
     glEnable(GL_LIGHTING);
     glEnable(GL_DEPTH_TEST);
@@ -1672,11 +1795,9 @@ void View3DInventorViewer::setSeekMode(SbBool on)
 void View3DInventorViewer::printDimension()
 {
     SoCamera* cam = getSoRenderManager()->getCamera();
-
-    if (!cam) return;  // no camera there
+    if (!cam) return; // no camera there
 
     SoType t = getSoRenderManager()->getCamera()->getTypeId();
-
     if (t.isDerivedFrom(SoOrthographicCamera::getClassTypeId())) {
         const SbViewportRegion& vp = getSoRenderManager()->getViewportRegion();
         const SbVec2s& size = vp.getWindowSize();
@@ -1728,6 +1849,8 @@ void View3DInventorViewer::selectAll()
 
 bool View3DInventorViewer::processSoEvent(const SoEvent* ev)
 {
+    if (naviCubeEnabled && naviCube->processSoEvent(ev))
+        return true;
     if (isRedirectedToSceneGraph()) {
         SbBool processed = inherited::processSoEvent(ev);
 
@@ -2017,7 +2140,6 @@ void View3DInventorViewer::setCameraType(SoType t)
 void View3DInventorViewer::moveCameraTo(const SbRotation& rot, const SbVec3f& pos, int steps, int ms)
 {
     SoCamera* cam = this->getSoRenderManager()->getCamera();
-
     if (cam == 0) return;
 
     SbVec3f campos = cam->position.getValue();
@@ -2045,7 +2167,6 @@ void View3DInventorViewer::moveCameraTo(const SbRotation& rot, const SbVec3f& po
 void View3DInventorViewer::animatedViewAll(int steps, int ms)
 {
     SoCamera* cam = this->getSoRenderManager()->getCamera();
-
     if (!cam)
         return;
 
@@ -2137,7 +2258,7 @@ void View3DInventorViewer::boxZoom(const SbBox2s& box)
 
 void View3DInventorViewer::viewAll()
 {
-    // in the scene graph we may have objects which we want to exlcude
+    // in the scene graph we may have objects which we want to exclude
     // when doing a fit all. Such objects must be part of the group
     // SoSkipBoundingGroup.
     SoSearchAction sa;
@@ -2635,7 +2756,7 @@ void View3DInventorViewer::setCursorRepresentation(int modearg)
 {
     // There is a synchronization problem between Qt and SoQt which
     // happens when popping up a context-menu. In this case the
-    // Qt::WA_UnderMouse attribute is resetted and never set again
+    // Qt::WA_UnderMouse attribute is reset and never set again
     // even if the mouse is still in the canvas. Thus, the cursor
     // won't be changed as long as the user doesn't leave and enter
     // the canvas. To fix this we explicitly set Qt::WA_UnderMouse

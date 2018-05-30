@@ -1,5 +1,4 @@
-Changelog you find now here:
-http://www.freecadweb.org/tracker/changelog_page.php
+Note: Future changelog now located at: http://www.freecadweb.org/tracker/changelog_page.php
 
 Version: 0.14
   * Python path messed up after installation
@@ -62,7 +61,7 @@ Version: 0.14
   * Draft Dimensions due not observe Dimension Precision on FreeCAD Windows
   * invalid DXF export
   * Port wiki, phpbb and mantis to self-hosted
-  * Crash propably in MeshPart
+  * Crash probably in MeshPart
   * Part.BSplineCurve: allow to set degree and mutliplicites when calling constructor.
   * FeaturePython objects should be able to define how POVray output is generated
   * Losing Snap when Object is getting more complex.
@@ -430,7 +429,7 @@ Version: V0.5B5 Date: Sat Feb 25 2006 +++++++++++++++++++++++++++++++
   * Return the edge list by reference in mesh kernel (to avoid memory leak)
   * PropertyVectorList implemented
   * Use PropertyVectorLists and PropertyFloatLists in Mesh::Curvature feature and its associated view provider
-  * PropertyColor(List) implemeted
+  * PropertyColor(List) implemented
   * PropertyMeshKernel added
   * move all Projects to NODEFAULTLIBS
   * move all Projects to xcopy
@@ -558,8 +557,8 @@ Version: V0.1B117 Date: Sun Mar 20 14:06:55 2005 +++++++++++++++++++++++++++++++
   * Integration of latest Image module source
   * RFE 1159671 implemented (elements in alphabetic order)
   * Finishing drag&drop multiple files
-  * Finishing open from command line and droping on Programm icon
-  * solving load dependand modules
+  * Finishing open from command line and dropping on Program icon
+  * solving load dependent modules
   * more convenient Python console
   * Bug 1149706 fixed (Cannot load CAD curves)
   * RFE 1214187 implemented (Remove views from main window)
@@ -608,7 +607,7 @@ Version: V0.1B109 Date: Mon Jan 24 11:13:15 2005 +++++++++++++++++++++++++++++++
     - SetStatus and GetStatus switch on or off the observer
 
 Version: V0.1B108 Date: Sat Jan 15 14:24:52 2005 +++++++++++++++++++++++++++++++
-  * Moved HtmlView to HelpView   * Reimplementaion
+  * Moved HtmlView to HelpView   * Reimplementation
   * Added class FileChooser ( line edit with button on its right side to browse)
   * Merged pref. page "Help viewer" and "Online Help" to one page
   * TextEdit class with completion
@@ -679,7 +678,7 @@ Version: V0.1B95 Date: Wed Nov 03 17:34:53 2004 +++++++++++++++++++++++++++++++
 
 Version: V0.1B94 Date: Sat Oct 23 18:58:52 2004 +++++++++++++++++++++++++++++++
   * finished implementation of the Tip of the day
-  * splitted several big files in smaller ones
+  * split several big files in smaller ones
   * namespace Gui::Kexi for property editor
   * namespace Gui::Dialog   * documentation for most dialogs
   * use QToolBox provided by Qt instead of StackBar
@@ -751,7 +750,7 @@ Version: V0.1B78 Date: Sun Nov 23 13:15:15 2003 +++++++++++++++++++++++++++++++
 
 Version: V0.1B77 Date: Fri Nov 14 14:56:14 2003 +++++++++++++++++++++++++++++++
   * Finished Setup stuff
-  * Removed all relativ paths
+  * Removed all relative paths
   * config HomePath is now not in bin anymore
   * all config files one dir up
   * FC runs now from every directory
@@ -834,11 +833,11 @@ Version: V0.1B63 Date: Sun Jun 08 20:21:25 2003 +++++++++++++++++++++++++++++++
   * drop down button completely new reimplemented
 
 Version: V0.1B62 Date: Sat May 31 11:53:56 2003 +++++++++++++++++++++++++++++++
-  * redesign of Document view modell
+  * redesign of Document view model
   * removing ViewContainer
   * adding the OnHasMsg methodes
   * switching some stdCommands to message stile to allow views with own document
-  * moving scintila to a passiv view modell
+  * moving scintila to a passive view model
   * updated to new version of Scintilla (1.53)
 
 Version: V0.1B61 Date: Sat May 24 17:35:52 2003 +++++++++++++++++++++++++++++++
@@ -906,13 +905,13 @@ Version: V0.1B50 Date: Fri Apr 04 22:10:24 2003 +++++++++++++++++++++++++++++++
   * some work on the Linux port
 
 Version: V0.1B49 Date: Thu Apr 03 22:45:35 2003 +++++++++++++++++++++++++++++++
-  * Master redisign of the window system, not yet full working
+  * Master redesign of the window system, not yet full working
 
 Version: V0.1B48 Date: Sun Mar 30 15:06:23 2003 +++++++++++++++++++++++++++++++
   * Big patch from Werner about:
     - feeding toolbars and Commandbar and menus from the parameterts
     - customizing works with positions in command bar and toolbar
-    - customizing by draging from menu into toolbar and commandbar
+    - customizing by dragging from menu into toolbar and commandbar
 
 Version: V0.1B47 Date: Fri Mar 28 18:24:36 2003 +++++++++++++++++++++++++++++++
   * Import App Module added
@@ -952,10 +951,10 @@ Version: V0.1B39 Date: Mon Mar 03 12:32:14 2003 +++++++++++++++++++++++++++++++
 
 Version: V0.1B38 Date: Thu Feb 27 22:19:35 2003 +++++++++++++++++++++++++++++++
   * fix of memory leack in CmdBar (werner)
-  * start rebulding FCCommand framework
+  * start rebuilding FCCommand framework
 
 Version: V0.1B37 Date: Tue Feb 25 20:29:19 2003 +++++++++++++++++++++++++++++++
-  * massiv improved costomize dialog (werner)
+  * massively improved customize dialog (werner)
     - sorting position of toolbars
 
 Version: V0.1B36 Date: Sat Feb 22 18:12:19 2003 +++++++++++++++++++++++++++++++
@@ -1013,7 +1012,7 @@ Version: V0.1B26 Date: Tue Jan 21 05:59:01 2003 +++++++++++++++++++++++++++++++
 
 Version: V0.1B25 Date: Sun Jan 19 18:20:51 2003 +++++++++++++++++++++++++++++++
   * Big Linux port patch from Vaclav
-    - some fixes on implicite type conversion (Vaclav)
+    - some fixes on implicit type conversion (Vaclav)
     - moving all .cxx to .cpp mainly in gui
     - moving DlgCusomizeImpl to Imp
     - and InitGui to GuiInit

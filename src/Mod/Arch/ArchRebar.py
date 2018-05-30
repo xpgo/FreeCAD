@@ -43,7 +43,7 @@ else:
 #
 #  This module provides tools to build Rebar objects.
 #  Rebars (or Reinforcing Bars) are metallic bars placed
-#  inside concrete strutures to reinforce them.
+#  inside concrete structures to reinforce them.
 
 __title__="FreeCAD Rebar"
 __author__ = "Yorik van Havre"
@@ -53,6 +53,9 @@ __url__ = "http://www.freecadweb.org"
 def makeRebar(baseobj=None,sketch=None,diameter=None,amount=1,offset=None,name="Rebar"):
     """makeRebar([baseobj,sketch,diameter,amount,offset,name]): adds a Reinforcement Bar object
     to the given structural object, using the given sketch as profile."""
+    if not FreeCAD.ActiveDocument:
+        FreeCAD.Console.PrintError("No active document. Aborting\n")
+        return
     p = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/Arch")
     obj = FreeCAD.ActiveDocument.addObject("Part::FeaturePython",name)
     obj.Label = translate("Arch",name)
@@ -141,7 +144,8 @@ class _CommandRebar:
                             print("Arch: error: couldn't extract a base object")
                             return
 
-        FreeCAD.Console.PrintMessage(translate("Arch","Please select a base face on a structural object\n"))
+        FreeCAD.Console.PrintMessage(translate("Arch","Please select a base face on a structural object")+"\n")
+        FreeCADGui.Control.closeDialog()
         FreeCADGui.Control.showDialog(ArchComponent.SelectionTaskPanel())
         FreeCAD.ArchObserver = ArchComponent.ArchSelectionObserver(nextCommand="Arch_Rebar")
         FreeCADGui.Selection.addObserver(FreeCAD.ArchObserver)
@@ -166,6 +170,7 @@ class _Rebar(ArchComponent.Component):
         obj.addProperty("App::PropertyDistance", "Length", "Arch", QT_TRANSLATE_NOOP("App::Property","Length of a single rebar"))
         obj.addProperty("App::PropertyDistance", "TotalLength", "Arch", QT_TRANSLATE_NOOP("App::Property","Total length of all rebars"))
         self.Type = "Rebar"
+        obj.IfcRole = "Reinforcing Bar"
         obj.setEditorMode("Spacing", 1)
         obj.setEditorMode("Length", 1)
         obj.setEditorMode("TotalLength", 1)
@@ -504,18 +509,18 @@ def strprocessOfCustomSpacing(span_string):
     in specific syntax and return output in the form of list. For eg.
     Input: "3@100+2@200+3@100"
     Output: [100, 100, 100, 200, 200, 100, 100, 100]"""
-    import string
-    span_st = string.strip(span_string)
-    span_sp = string.split(span_st, '+')
+    # import string
+    span_st = span_string.strip()
+    span_sp = span_st.split('+')
     index = 0
     spacinglist = []
     while index < len(span_sp):
         # Find "@" recursively in span_sp array.
         # If not found, append the index value to "spacinglist" array.
-        if string.find(span_sp[index],'@') == -1:
+        if span_sp[index].find('@') == -1:
             spacinglist.append(float(span_sp[index]))
         else:
-            in_sp = string.split(span_sp[index], '@')
+            in_sp = span_sp[index].split('@')
             count = 0
             while count < int(in_sp[0]):
                 spacinglist.append(float(in_sp[1]))

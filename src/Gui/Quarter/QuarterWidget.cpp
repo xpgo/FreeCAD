@@ -98,6 +98,7 @@
 #if QT_VERSION >= 0x050000
 #include <QWindow>
 #include <QGuiApplication>
+#include <QMetaObject>
 #endif
 
 
@@ -110,7 +111,7 @@ using namespace SIM::Coin3D::Quarter;
   the scene. Some of the settings will provide faster rendering, while
   others gives you better quality rendering.
 
-  See \ref SoGLRenderAction::TransparencyType for a full descrition of the modes
+  See \ref SoGLRenderAction::TransparencyType for a full description of the modes
 */
 
 /*!
@@ -118,7 +119,7 @@ using namespace SIM::Coin3D::Quarter;
 
   Sets how rendering of primitives is done.
 
-  See \ref SoRenderManager::RenderMode for a full descrition of the modes
+  See \ref SoRenderManager::RenderMode for a full description of the modes
 */
 
 /*!
@@ -126,7 +127,7 @@ using namespace SIM::Coin3D::Quarter;
 
   Sets how stereo rendering is performed.
 
-  See \ref SoRenderManager::StereoMode for a full descrition of the modes
+  See \ref SoRenderManager::StereoMode for a full description of the modes
 */
 
   enum StereoMode {
@@ -143,7 +144,7 @@ using namespace SIM::Coin3D::Quarter;
 #define GL_MULTISAMPLE_BIT_EXT 0x20000000
 #endif
 
-//We need to avoid buffer swaping when initializing a QPainter on this widget
+//We need to avoid buffer swapping when initializing a QPainter on this widget
 #if defined(HAVE_QT5_OPENGL)
 class CustomGLWidget : public QOpenGLWidget {
 public:
@@ -168,8 +169,8 @@ public:
     }
     void initializeGL()
     {
-#if defined (_DEBUG) && 0
         QOpenGLContext *context = QOpenGLContext::currentContext();
+#if defined (_DEBUG) && 0
         if (context && context->hasExtension(QByteArrayLiteral("GL_KHR_debug"))) {
             QOpenGLDebugLogger *logger = new QOpenGLDebugLogger(this);
             connect(logger, &QOpenGLDebugLogger::messageLogged, this, &CustomGLWidget::handleLoggedMessage);
@@ -178,7 +179,17 @@ public:
                 logger->startLogging(QOpenGLDebugLogger::SynchronousLogging);
         }
 #endif
+        if (context) {
+            connect(context, &QOpenGLContext::aboutToBeDestroyed,
+                this, &CustomGLWidget::aboutToDestroyGLContext, Qt::DirectConnection);
+        }
         connect(this, &CustomGLWidget::resized, this, &CustomGLWidget::slotResized);
+    }
+    void aboutToDestroyGLContext()
+    {
+        QMetaObject::invokeMethod(parent(), "aboutToDestroyGLContext",
+            Qt::DirectConnection,
+            QGenericReturnArgument());
     }
     bool event(QEvent *e)
     {
@@ -313,6 +324,11 @@ QuarterWidget::replaceViewport()
   setAutoFillBackground(false);
   viewport()->setAutoFillBackground(false);
 #endif
+}
+
+void
+QuarterWidget::aboutToDestroyGLContext()
+{
 }
 
 /*! destructor */
@@ -1172,8 +1188,8 @@ QuarterWidget::renderModeActions(void) const
 /*!
   \property QuarterWidget::navigationModeFile
 
-  An url to a navigation mode file which is a scxml file which defines
-  the possible states for the Coin navigation system
+  A url pointing to a navigation mode file which is a scxml file
+  that defines the possible states for the Coin navigation system
 
   Supports:
   \li \b coin for internal coinresources

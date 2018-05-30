@@ -148,7 +148,6 @@ View3DInventor::View3DInventor(Gui::Document* pcDocument, QWidget* parent,
 
     // create the inventor widget and set the defaults
     _viewer->setDocument(this->_pcDocument);
-    _viewer->setDocument(this->_pcDocument);
     stack->addWidget(_viewer->getWidget());
     // http://forum.freecadweb.org/viewtopic.php?f=3&t=6055&sid=150ed90cbefba50f1e2ad4b4e6684eba
     // describes a minor error but trying to fix it leads to a major issue
@@ -169,6 +168,7 @@ View3DInventor::View3DInventor(Gui::Document* pcDocument, QWidget* parent,
     OnChange(*hGrp,"BackgroundColor4");
     OnChange(*hGrp,"UseBackgroundColorMid");
     OnChange(*hGrp,"ShowFPS");
+    OnChange(*hGrp,"ShowNaviCube");
     OnChange(*hGrp,"UseVBO");
     OnChange(*hGrp,"Orthographic");
     OnChange(*hGrp,"HeadlightColor");
@@ -223,6 +223,7 @@ View3DInventor::~View3DInventor()
 
 void View3DInventor::deleteSelf()
 {
+    _viewer->setSceneGraph(0);
     _viewer->setDocument(0);
     MDIView::deleteSelf();
 }
@@ -361,6 +362,12 @@ void View3DInventor::OnChange(ParameterGrp::SubjectType &rCaller,ParameterGrp::M
     else if (strcmp(Reason,"ShowFPS") == 0) {
         _viewer->setEnabledFPSCounter(rGrp.GetBool("ShowFPS",false));
     }
+    else if (strcmp(Reason,"ShowNaviCube") == 0) {
+        _viewer->setEnabledNaviCube(rGrp.GetBool("ShowNaviCube",true));
+    }
+    else if (strcmp(Reason,"CornerNaviCube") == 0) {
+        _viewer->setNaviCubeCorner(rGrp.GetInt("CornerNaviCube",0));
+    }
     else if (strcmp(Reason,"UseVBO") == 0) {
         _viewer->setEnabledVBO(rGrp.GetBool("UseVBO",false));
     }
@@ -371,32 +378,28 @@ void View3DInventor::OnChange(ParameterGrp::SubjectType &rCaller,ParameterGrp::M
         else
             _viewer->setCameraType(SoPerspectiveCamera::getClassTypeId());
     }
-    else if (strcmp(Reason, "DimensionsVisible") == 0)
-    {
-      if (rGrp.GetBool("DimensionsVisible", true))
-        _viewer->turnAllDimensionsOn();
-      else
-        _viewer->turnAllDimensionsOff();
+    else if (strcmp(Reason, "DimensionsVisible") == 0) {
+        if (rGrp.GetBool("DimensionsVisible", true))
+            _viewer->turnAllDimensionsOn();
+        else
+            _viewer->turnAllDimensionsOff();
     }
-    else if (strcmp(Reason, "Dimensions3dVisible") == 0)
-    {
-      if (rGrp.GetBool("Dimensions3dVisible", true))
-        _viewer->turn3dDimensionsOn();
-      else
-        _viewer->turn3dDimensionsOff();
+    else if (strcmp(Reason, "Dimensions3dVisible") == 0) {
+        if (rGrp.GetBool("Dimensions3dVisible", true))
+            _viewer->turn3dDimensionsOn();
+        else
+            _viewer->turn3dDimensionsOff();
     }
-    else if (strcmp(Reason, "DimensionsDeltaVisible") == 0)
-    {
-      if (rGrp.GetBool("DimensionsDeltaVisible", true))
-        _viewer->turnDeltaDimensionsOn();
-      else
-        _viewer->turnDeltaDimensionsOff();
-    } 
-    else if (strcmp(Reason, "PickRadius") == 0)
-    {
+    else if (strcmp(Reason, "DimensionsDeltaVisible") == 0) {
+        if (rGrp.GetBool("DimensionsDeltaVisible", true))
+            _viewer->turnDeltaDimensionsOn();
+        else
+            _viewer->turnDeltaDimensionsOff();
+    }
+    else if (strcmp(Reason, "PickRadius") == 0) {
         _viewer->setPickRadius(rGrp.GetFloat("PickRadius", 5.0f));
     }
-    else{
+    else {
         unsigned long col1 = rGrp.GetUnsigned("BackgroundColor",3940932863UL);
         unsigned long col2 = rGrp.GetUnsigned("BackgroundColor2",859006463UL); // default color (dark blue)
         unsigned long col3 = rGrp.GetUnsigned("BackgroundColor3",2880160255UL); // default color (blue/grey)
@@ -427,7 +430,7 @@ void View3DInventor::onUpdate(void)
 #ifdef FC_LOGUPDATECHAIN
     Base::Console().Log("Acti: Gui::View3DInventor::onUpdate()");
 #endif
-    update();  
+    update();
     _viewer->redraw();
 }
 
@@ -480,60 +483,6 @@ void View3DInventor::printPreview()
 
 void View3DInventor::print(QPrinter* printer)
 {
-    // The SVG output needs to be improved
-#if 0
-    SoFCVectorizeSVGAction action;
-    SoSVGVectorOutput* out = action.getSVGOutput();
-    std::string tmp = Base::FileInfo::getTempFileName();
-    if (!out || !out->openFile(tmp.c_str()))
-        return;
-    SoVectorizeAction::PageSize ps;
-    switch (printer->pageSize()) {
-    case QPrinter::A0:
-        ps = SoVectorizeAction::A0;
-        break;
-    case QPrinter::A1:
-        ps = SoVectorizeAction::A1;
-        break;
-    case QPrinter::A2:
-        ps = SoVectorizeAction::A2;
-        break;
-    case QPrinter::A3:
-        ps = SoVectorizeAction::A3;
-        break;
-    case QPrinter::A4:
-        ps = SoVectorizeAction::A4;
-        break;
-    case QPrinter::A5:
-        ps = SoVectorizeAction::A5;
-        break;
-    case QPrinter::A6:
-        ps = SoVectorizeAction::A6;
-        break;
-    case QPrinter::A7:
-        ps = SoVectorizeAction::A7;
-        break;
-    case QPrinter::A8:
-        ps = SoVectorizeAction::A8;
-        break;
-    case QPrinter::A9:
-        ps = SoVectorizeAction::A9;
-        break;
-    default:
-        ps = SoVectorizeAction::A4;
-        break;
-    }
-    QColor c = Qt::white;
-    _viewer->saveGraphic(ps,c,&action);
-    out->closeFile();
-    QSvgRenderer svg;
-    if (svg.load(QString::fromUtf8(tmp.c_str()))) {
-        QPainter p(printer);
-        svg.render(&p);
-        p.end();
-    }
-#else
-    QImage img;
     QPainter p(printer);
     p.setRenderHints(QPainter::Antialiasing | QPainter::HighQualityAntialiasing);
     if (!p.isActive() && !printer->outputFileName().isEmpty()) {
@@ -543,56 +492,12 @@ void View3DInventor::print(QPrinter* printer)
         qApp->restoreOverrideCursor();
         return;
     }
+
     QRect rect = printer->pageRect();
-
-#if !defined(HAVE_QT5_OPENGL)
-    bool pbuffer = QGLPixelBuffer::hasOpenGLPbuffers();
-#else
-    bool pbuffer = false;
-#endif
-    if (App::GetApplication().GetParameterGroupByPath
-        ("User parameter:BaseApp/Preferences/Document")->GetBool("DisablePBuffers",!pbuffer)) {
-        previewFromFramebuffer(rect, img);
-    }
-    else {
-        try {
-            _viewer->savePicture(rect.width(), rect.height(), QColor(Qt::white), img);
-        }
-        catch (...) {
-            previewFromFramebuffer(rect, img);
-        }
-    }
-
+    QImage img;
+    _viewer->imageFromFramebuffer(rect.width(), rect.height(), 8, QColor(255,255,255), img);
     p.drawImage(0,0,img);
     p.end();
-#endif
-}
-
-void View3DInventor::previewFromFramebuffer(const QRect& rect, QImage& img)
-{
-    static_cast<QtGLWidget*>(_viewer->getGLWidget())->makeCurrent();
-
-#if QT_VERSION >= 0x040600
-    QtGLFramebufferObjectFormat format;
-    format.setSamples(8);
-    format.setAttachment(QtGLFramebufferObject::Depth);
-#if defined(HAVE_QT5_OPENGL)
-    format.setInternalTextureFormat(GL_RGB32F_ARB);
-#else
-    format.setInternalTextureFormat(GL_RGB);
-#endif
-    QtGLFramebufferObject fbo(rect.width(), rect.height(), format);
-#else
-    QtGLFramebufferObject fbo(rect.width(), rect.height(), QtGLFramebufferObject::Depth);
-#endif
-    const QColor col = _viewer->backgroundColor();
-    bool on = _viewer->hasGradientBackground();
-    _viewer->setBackgroundColor(QColor(255,255,255));
-    _viewer->setGradientBackground(false);
-    _viewer->renderToFramebuffer(&fbo);
-    _viewer->setBackgroundColor(col);
-    _viewer->setGradientBackground(on);
-    img = fbo.toImage();
 }
 
 // **********************************************************************************

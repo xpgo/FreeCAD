@@ -13,10 +13,10 @@ def proceed():
         compute()
     except:
         hide()
-        QtGui.qApp.restoreOverrideCursor()
+        QtGui.QApplication.restoreOverrideCursor()
 
 def compute():    
-    QtGui.qApp.setOverrideCursor(QtCore.Qt.WaitCursor)
+    QtGui.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
    
     if FreeCAD.ActiveDocument==None:
         FreeCAD.newDocument("Gear")
@@ -95,7 +95,7 @@ def compute():
         y=db/2*(math.sin(math.radians(t))-math.radians(t)*math.cos(math.radians(t)))    
         involute.append(Part.Vertex(x,y,0).Point)
 
-#************ Drawing rigth sides of teeth   
+#************ Drawing right sides of teeth   
     involutesav.extend(involute)
     involutee.extend(involute)
 
@@ -232,7 +232,7 @@ def compute():
     App.ActiveDocument.recompute()
     Gui.SendMsgToActiveView("ViewFit")
     
-    QtGui.qApp.restoreOverrideCursor()
+    QtGui.QApplication.restoreOverrideCursor()
  
 
     hide()

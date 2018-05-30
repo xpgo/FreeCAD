@@ -88,7 +88,7 @@ protected:
 };
 
 /** The general Link Property
- *  Main Purpose of this property is to Link Objects and Feautures in a document. Like all links this 
+ *  Main Purpose of this property is to Link Objects and Features in a document. Like all links this 
  *  property is scope aware, meaning it does define which objects are allowed to be linked depending 
  *  of the GeoFeatureGroup where it is in. Default is Local.
  * 
@@ -242,7 +242,7 @@ public:
     PropertyLinkListGlobal() {_pcScope = LinkScope::Global;};
 };
 
-/** the Link Poperty with sub elements
+/** the Link Property with sub elements
  *  This property links an object and a defined sequence of
  *  sub elements. These subelements (like Edges of a Shape)
  *  are stored as names, which can be resolved by the 

@@ -63,7 +63,7 @@ class Node:
         return bool(self.name or self.arguments or self.children)
 
     def __len__(self):
-        '''return the numer of children'''
+        '''return the number of children'''
         return len(self.children)
 
     def __getitem__(self,key):
@@ -390,7 +390,7 @@ class Node:
                         f=edgestofaces(edges)
                     except Part.OCCError:
                         FreeCAD.Console.PrintError(\
- 'processing of dxf import faild\nPlease rework \'%s\' manualy\n' % layera)
+ 'processing of dxf import failed\nPlease rework \'%s\' manually\n' % layera)
                         f=Part.Shape() #empty Shape
                     obj=doc.addObject("Part::FeaturePython",'import_dxf_%s_%s'%(objname,layera))
                     #obj=doc.addObject('Part::Feature',)
@@ -549,7 +549,7 @@ class Node:
             child.pprint(level+1)
 
     def pprint2(self,path='root',pathjust=24):
-        """prints the tree. Left column contains the the systax to access a child"""
+        """prints the tree. Left column contains the syntax to access a child"""
         if self.arguments:
             argstr = ' (%s)' % self.arguments
         else:

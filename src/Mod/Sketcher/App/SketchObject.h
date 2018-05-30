@@ -101,6 +101,8 @@ public:
     int deleteAllGeometry();
     /// add all constraints in the list
     int addConstraints(const std::vector<Constraint *> &ConstraintList);
+    /// Copy the constraints instead of cloning them and copying the expressions if any
+    int addCopyOfConstraints(const SketchObject &orig);
     /// add constraint
     int addConstraint(const Constraint *constraint);
     /// delete constraint
@@ -109,7 +111,7 @@ public:
     int delConstraintOnPoint(int VertexId, bool onlyCoincident=true);
     /// Deletes all constraints referencing an external geometry
     int delConstraintsToExternal();
-    /// transfers all contraints of a point to a new point
+    /// transfers all constraints of a point to a new point
     int transferConstraints(int fromGeoId, PointPos fromPosId, int toGeoId, PointPos toPosId);
     /// Carbon copy another sketch geometry and constraints
     int carbonCopy(App::DocumentObject * pObj, bool construction = true);
@@ -167,6 +169,12 @@ public:
     int getDriving(int ConstrId, bool &isdriving);
     /// toggle the driving status of this constraint
     int toggleDriving(int ConstrId);
+    /// set the driving status of this constraint and solve
+    int setVirtualSpace(int ConstrId, bool isinvirtualspace);
+    /// get the driving status of this constraint
+    int getVirtualSpace(int ConstrId, bool &isinvirtualspace) const;
+    /// toggle the driving status of this constraint
+    int toggleVirtualSpace(int ConstrId);
     /// move this point to a new location and solve
     int movePoint(int GeoId, PointPos PosId, const Base::Vector3d& toPoint, bool relative=false, bool updateGeoBeforeMoving=false);
     /// retrieves the coordinates of a point
@@ -263,6 +271,8 @@ public:
     bool isPointOnCurve(int geoIdCurve, double px, double py);
     double calculateConstraintError(int ConstrId);
     int changeConstraintsLocking(bool bLock);
+    /// returns whether a given constraint has an associated expression or not
+    bool constraintHasExpression(int constrid) const;
 
     ///porting functions
     int port_reversedExternalArcs(bool justAnalyze);
@@ -329,6 +339,7 @@ public:
         rlCircularReference,
         rlOtherPart,
         rlOtherBody,
+        rlOtherBodyWithLinks,   // for carbon copy
         rlNotASketch,           // for carbon copy
         rlNonParallel,          // for carbon copy
         rlAxesMisaligned,       // for carbon copy

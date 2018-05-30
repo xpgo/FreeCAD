@@ -36,7 +36,7 @@ from PySide import QtCore
 __title__ = "Base class for all operations."
 __author__ = "sliptonic (Brad Collette)"
 __url__ = "http://www.freecadweb.org"
-__doc__ = "Base class and properties implemenation for all Path operations."
+__doc__ = "Base class and properties implementation for all Path operations."
 
 if False:
     PathLog.setLevel(PathLog.Level.DEBUG, PathLog.thisModule())
@@ -149,8 +149,8 @@ class ObjectOp(object):
 
         self.initOperation(obj)
 
-        obj.Proxy = self
-        self.setDefaultValues(obj)
+        if self.setDefaultValues(obj):
+            obj.Proxy = self
 
     def onDocumentRestored(self, obj):
         features = self.opFeatures(obj)
@@ -244,7 +244,9 @@ class ObjectOp(object):
 
         if FeatureTool & features:
             obj.ToolController = PathUtils.findToolController(obj)
-            obj.OpToolDiameter  =  1.0
+            if not obj.ToolController:
+                return False
+            obj.OpToolDiameter  =  obj.ToolController.Tool.Diameter
 
         if FeatureDepths & features:
             if self.applyExpression(obj, 'StartDepth', job.SetupSheet.StartDepthExpression):
@@ -273,6 +275,7 @@ class ObjectOp(object):
 
         self.opSetDefaultValues(obj)
         obj.recompute()
+        return True
 
     def _setBaseAndStock(self, obj, ignoreErrors=False):
         job = PathUtils.findParentJob(obj)
@@ -302,7 +305,7 @@ class ObjectOp(object):
 
         def faceZmin(bb, fbb):
             if fbb.ZMax == fbb.ZMin and fbb.ZMax == bb.ZMax:  # top face
-                return bb.ZMin
+                return fbb.ZMin
             elif fbb.ZMax > fbb.ZMin and fbb.ZMax == bb.ZMax: # vertical face, full cut
                 return fbb.ZMin
             elif fbb.ZMax > fbb.ZMin and fbb.ZMin > bb.ZMin:  # internal vertical wall
@@ -328,7 +331,9 @@ class ObjectOp(object):
                     zmax = max(zmax, fbb.ZMax)
         else:
             # clearing with stock boundaries
-            pass
+            job = PathUtils.findParentJob(obj)
+            zmax = stockBB.ZMax
+            zmin = job.Base.Shape.BoundBox.ZMax
 
         if FeatureDepths & self.opFeatures(obj):
             # first set update final depth, it's value is not negotiable
@@ -433,7 +438,7 @@ class ObjectOp(object):
                 baselist = []
             item = (base, sub)
             if item in baselist:
-                PathLog.notice(translate("Path", "this object already in the list" + "\n"))
+                PathLog.notice(translate("Path", "This object already in the list")+"\n")
             else:
                 baselist.append(item)
                 obj.Base = baselist

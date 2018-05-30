@@ -27,8 +27,6 @@ __title__="FreeCAD Arch Space"
 __author__ = "Yorik van Havre"
 __url__ = "http://www.freecadweb.org"
 
-Roles = ["Undefined","Space"]
-
 SpaceTypes = [
 "Undefined",
 "Exterior",
@@ -176,6 +174,9 @@ def makeSpace(objects=None,baseobj=None,name="Space"):
     """makeSpace([objects]): Creates a space object from the given objects. Objects can be one
     document object, in which case it becomes the base shape of the space object, or a list of
     selection objects as got from getSelectionEx(), or a list of tuples (object, subobjectname)"""
+    if not FreeCAD.ActiveDocument:
+        FreeCAD.Console.PrintError("No active document. Aborting\n")
+        return
     obj = FreeCAD.ActiveDocument.addObject("Part::FeaturePython",name)
     obj.Label = translate("Arch",name)
     _Space(obj)
@@ -188,7 +189,8 @@ def makeSpace(objects=None,baseobj=None,name="Space"):
             objects = [objects]
         if len(objects) == 1:
             obj.Base = objects[0]
-            objects[0].ViewObject.hide()
+            if FreeCAD.GuiUp:
+                objects[0].ViewObject.hide()
         else:
             obj.Proxy.addSubobjects(obj,objects)
     return obj
@@ -237,7 +239,7 @@ class _CommandSpace:
             FreeCAD.ActiveDocument.commitTransaction()
             FreeCAD.ActiveDocument.recompute()
         else:
-            FreeCAD.Console.PrintMessage(translate("Arch","Please select a base object\n"))
+            FreeCAD.Console.PrintMessage(translate("Arch","Please select a base object")+"\n")
             FreeCADGui.Control.showDialog(ArchComponent.SelectionTaskPanel())
             FreeCAD.ArchObserver = ArchComponent.ArchSelectionObserver(nextCommand="Arch_Space")
             FreeCADGui.Selection.addObserver(FreeCAD.ArchObserver)
@@ -264,8 +266,7 @@ class _Space(ArchComponent.Component):
         self.Type = "Space"
         obj.SpaceType = SpaceTypes
         obj.Conditioning = ConditioningTypes
-        obj.Role = Roles
-        obj.Role = "Space"
+        obj.IfcRole = "Space"
         obj.setEditorMode("HorizontalArea",2)
 
     def execute(self,obj):
@@ -336,7 +337,7 @@ class _Space(ArchComponent.Component):
             shape = Part.makeBox(bb.XLength,bb.YLength,bb.ZLength,FreeCAD.Vector(bb.XMin,bb.YMin,bb.ZMin))
             #print("created shape from boundbox")
 
-        # 3: identifing boundary faces
+        # 3: identifying boundary faces
         goodfaces = []
         for b in obj.Boundaries:
                 if b[0].isDerivedFrom("Part::Feature"):

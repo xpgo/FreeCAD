@@ -48,12 +48,12 @@ __title__="FreeCAD Arch Frame"
 __author__ = "Yorik van Havre"
 __url__ = "http://www.freecadweb.org"
 
-# Possible roles for frames
-Roles = ['Undefined','Covering','Member','Railing','Shading Device','Tendon']
-
 def makeFrame(baseobj,profile,name=translate("Arch","Frame")):
     """makeFrame(baseobj,profile,[name]): creates a frame object from a base sketch (or any other object
     containing wires) and a profile object (an extrudable 2D object containing faces or closed wires)"""
+    if not FreeCAD.ActiveDocument:
+        FreeCAD.Console.PrintError("No active document. Aborting\n")
+        return
     obj = FreeCAD.ActiveDocument.addObject("Part::FeaturePython",name)
     obj.Label = translate("Arch",name)
     _Frame(obj)
@@ -106,8 +106,7 @@ class _Frame(ArchComponent.Component):
         obj.addProperty("App::PropertyBool","Fuse","Arch",QT_TRANSLATE_NOOP("App::Property","If true, geometry is fused, otherwise a compound"))
         self.Type = "Frame"
         obj.Align = True
-        obj.Role = Roles
-        obj.Role = "Railing"
+        obj.IfcRole = "Railing"
         obj.Edges = ["All edges","Vertical edges","Horizontal edges","Bottom horizontal edges","Top horizontal edges"]
 
     def execute(self,obj):
@@ -191,7 +190,7 @@ class _Frame(ArchComponent.Component):
                     try:
                         basepoint = basepointliste[obj.BasePoint]
                     except IndexError:
-                        FreeCAD.Console.PrintMessage(translate("Arch","Crossing point not found in profile.\n"))
+                        FreeCAD.Console.PrintMessage(translate("Arch","Crossing point not found in profile.")+"\n")
                         basepoint = basepointliste[0]
                 else :
                     basepoint = profile.CenterOfMass

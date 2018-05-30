@@ -63,6 +63,8 @@
 
 #include "GeometryCreationMode.h"
 
+#include "SketcherRegularPolygonDialog.h"
+
 using namespace std;
 using namespace SketcherGui;
 
@@ -228,7 +230,7 @@ void removeRedundantHorizontalVertical(Sketcher::SketchObject* psketch,
 /* Sketch commands =======================================================*/
 
 static const char cursor_crosshair_color_fmt[] = "+ c #%06lX";
-static char cursor_crosshair_color[11];
+static char cursor_crosshair_color[12];
 
 void DrawSketchHandler::setCrosshairColor()
 {
@@ -733,6 +735,7 @@ public:
     DrawSketchHandlerLineSet()
       : Mode(STATUS_SEEK_First), SegmentMode(SEGMENT_MODE_Line)
       , TransitionMode(TRANSITION_MODE_Free)
+      , SnapMode(SNAP_MODE_Free)
       , suppressTransition(false)
       , EditCurve(2)
       , firstCurve(-1)
@@ -767,6 +770,12 @@ public:
         TRANSITION_MODE_Perpendicular_L,
         TRANSITION_MODE_Perpendicular_R
     };
+    
+    enum SNAP_MODE
+    {
+        SNAP_MODE_Free,
+        SNAP_MODE_45Degree
+    };
 
     virtual void registerPressedKey(bool pressed, int key)
     {
@@ -782,6 +791,8 @@ public:
             // SEGMENT_MODE_Arc, TRANSITION_MODE_Perpendicular_L
             // SEGMENT_MODE_Arc, TRANSITION_MODE_Perpendicular_R
 
+            SnapMode = SNAP_MODE_Free;
+            
             Base::Vector2d onSketchPos;
             if (SegmentMode == SEGMENT_MODE_Line)
                 onSketchPos = EditCurve[EditCurve.size()-1];
@@ -898,6 +909,12 @@ public:
                 }
             }
             else if (SegmentMode == SEGMENT_MODE_Arc) {
+                
+                if(QApplication::keyboardModifiers() == Qt::ControlModifier)
+                    SnapMode = SNAP_MODE_45Degree;
+                else
+                    SnapMode = SNAP_MODE_Free;
+                
                 Base::Vector2d Tangent;
                 if  (TransitionMode == TRANSITION_MODE_Tangent)
                     Tangent = Base::Vector2d(dirVec.x,dirVec.y);
@@ -907,7 +924,9 @@ public:
                     Tangent = Base::Vector2d(dirVec.y,-dirVec.x);
 
                 double theta = Tangent.GetAngle(onSketchPos - EditCurve[0]);
+
                 arcRadius = (onSketchPos - EditCurve[0]).Length()/(2.0*sin(theta));
+
                 // At this point we need a unit normal vector pointing torwards
                 // the center of the arc we are drawing. Derivation of the formula
                 // used here can be found at http://people.richland.edu/james/lecture/m116/matrices/area.html
@@ -938,6 +957,10 @@ public:
                     arcAngle -=  2*M_PI;
                 if (arcRadius < 0 && arcAngle < 0)
                     arcAngle +=  2*M_PI;
+                
+                if (SnapMode == SNAP_MODE_45Degree)
+                    arcAngle = round(arcAngle / (M_PI/4)) * M_PI/4;
+
                 endAngle = startAngle + arcAngle;
 
                 for (int i=1; i <= 29; i++) {
@@ -986,8 +1009,10 @@ public:
                         previousCurve = sugConstr1[i].GeoId;
                         previousPosId = sugConstr1[i].PosId;
                         updateTransitionData(previousCurve,previousPosId); // -> dirVec, EditCurve[0]
-                        if (geom->getTypeId() == Part::GeomArcOfCircle::getClassTypeId())
+                        if (geom->getTypeId() == Part::GeomArcOfCircle::getClassTypeId()) {
                             TransitionMode = TRANSITION_MODE_Tangent;
+                            SnapMode = SNAP_MODE_Free;
+                        }
                         sugConstr1.erase(sugConstr1.begin()+i); // actually we should clear the vector completely
                         break;
                     }
@@ -1019,6 +1044,7 @@ public:
                     Mode=STATUS_SEEK_First;
                     SegmentMode=SEGMENT_MODE_Line;
                     TransitionMode=TRANSITION_MODE_Free;
+                    SnapMode = SNAP_MODE_Free;
                     suppressTransition=false;
                     firstCurve=-1;
                     previousCurve=-1;
@@ -1125,6 +1151,15 @@ public:
                     "App.ActiveDocument.%s.addConstraint(Sketcher.Constraint('%s',%i,%i,%i,%i)) ",
                     sketchgui->getObject()->getNameInDocument(), constrType.c_str(),
                     previousCurve, previousPosId, lastCurve, lastStartPosId);
+
+                if(SnapMode == SNAP_MODE_45Degree && Mode != STATUS_Close) {
+                    // -360, -315, -270, -225, -180, -135, -90, -45,  0, 45,  90, 135, 180, 225, 270, 315, 360
+                    //  N/A,    a, perp,    a,  par,    a,perp,   a,N/A,  a,perp,   a, par,   a,perp,   a, N/A
+                    Gui::Command::doCommand(Gui::Command::Doc,
+                                            "App.ActiveDocument.%s.addConstraint(Sketcher.Constraint('Angle',%i,%f)) ",
+                                            sketchgui->getObject()->getNameInDocument(),
+                                            lastCurve, abs(endAngle-startAngle));
+                }
                 if (Mode == STATUS_Close) {
                     // close the loop by constrain to the first curve point
                     Gui::Command::doCommand(Gui::Command::Doc,
@@ -1176,6 +1211,7 @@ public:
                     Mode=STATUS_SEEK_First;
                     SegmentMode=SEGMENT_MODE_Line;
                     TransitionMode=TRANSITION_MODE_Free;
+                    SnapMode = SNAP_MODE_Free;
                     suppressTransition=false;
                     firstCurve=-1;
                     previousCurve=-1;
@@ -1216,7 +1252,9 @@ public:
                 virtualsugConstr1 = sugConstr2; // these are the initial constraints for the next iteration.
 
                 if (sugConstr2.size() > 0) {
-                    createAutoConstraints(sugConstr2, getHighestCurveIndex(), Sketcher::end);
+                    createAutoConstraints(sugConstr2, getHighestCurveIndex(), 
+                                          (SegmentMode == SEGMENT_MODE_Arc && startAngle > endAngle) ?
+                                            Sketcher::start : Sketcher::end);
                     sugConstr2.clear();
                 }
 
@@ -1243,6 +1281,7 @@ public:
                     EditCurve.resize(2);
                 }
                 SegmentMode = SEGMENT_MODE_Line;
+                SnapMode = SNAP_MODE_Free;
                 EditCurve[1] = EditCurve[0];
                 mouseMove(onSketchPos); // trigger an update of EditCurve
             }
@@ -1272,6 +1311,7 @@ public:
                 Mode=STATUS_SEEK_First;
                 SegmentMode=SEGMENT_MODE_Line;
                 TransitionMode=TRANSITION_MODE_Free;
+                SnapMode = SNAP_MODE_Free;
                 suppressTransition=false;
                 firstCurve=-1;
                 previousCurve=-1;
@@ -1290,6 +1330,7 @@ protected:
     SELECT_MODE Mode;
     SEGMENT_MODE SegmentMode;
     TRANSITION_MODE TransitionMode;
+    SNAP_MODE SnapMode;
     bool suppressTransition;
 
     std::vector<Base::Vector2d> EditCurve;
@@ -3088,7 +3129,7 @@ CmdSketcherCreateEllipseByCenter::CmdSketcherCreateEllipseByCenter()
     sGroup          = QT_TR_NOOP("Sketcher");
     sMenuText       = QT_TR_NOOP("Create ellipse by center");
     sToolTipText    = QT_TR_NOOP("Create an ellipse by center in the sketch");
-    sWhatsThis      = sToolTipText;
+    sWhatsThis      = "Sketcher_CreateEllipseByCenter";
     sStatusTip      = sToolTipText;
     sPixmap         = "Sketcher_Conics_Ellipse_Center";
     eType           = ForEdit;
@@ -3118,7 +3159,7 @@ CmdSketcherCreateEllipseBy3Points::CmdSketcherCreateEllipseBy3Points()
     sGroup          = QT_TR_NOOP("Sketcher");
     sMenuText       = QT_TR_NOOP("Create ellipse by 3 points");
     sToolTipText    = QT_TR_NOOP("Create an ellipse by 3 points in the sketch");
-    sWhatsThis      = sToolTipText;
+    sWhatsThis      = "Sketcher_CreateEllipseBy3Points";
     sStatusTip      = sToolTipText;
     sPixmap         = "Sketcher_CreateEllipse_3points";
     eType           = ForEdit;
@@ -3491,7 +3532,7 @@ CmdSketcherCreateArcOfEllipse::CmdSketcherCreateArcOfEllipse()
     sGroup          = QT_TR_NOOP("Sketcher");
     sMenuText       = QT_TR_NOOP("Create an arc of ellipse");
     sToolTipText    = QT_TR_NOOP("Create an arc of ellipse in the sketch");
-    sWhatsThis      = sToolTipText;
+    sWhatsThis      = "Sketcher_CreateArcOfEllipse";
     sStatusTip      = sToolTipText;
     sPixmap         = "Sketcher_Elliptical_Arc";
     eType           = ForEdit;
@@ -3875,7 +3916,7 @@ CmdSketcherCreateArcOfHyperbola::CmdSketcherCreateArcOfHyperbola()
     sGroup          = QT_TR_NOOP("Sketcher");
     sMenuText       = QT_TR_NOOP("Create an arc of hyperbola");
     sToolTipText    = QT_TR_NOOP("Create an arc of hyperbola in the sketch");
-    sWhatsThis      = sToolTipText;
+    sWhatsThis      = "Sketcher_CreateArcOfHyperbola";
     sStatusTip      = sToolTipText;
     sPixmap         = "Sketcher_Hyperbolic_Arc";
     eType           = ForEdit;
@@ -4220,7 +4261,7 @@ CmdSketcherCreateArcOfParabola::CmdSketcherCreateArcOfParabola()
     sGroup          = QT_TR_NOOP("Sketcher");
     sMenuText       = QT_TR_NOOP("Create an arc of parabola");
     sToolTipText    = QT_TR_NOOP("Create an arc of parabola in the sketch");
-    sWhatsThis      = sToolTipText;
+    sWhatsThis      = "Sketcher_CreateArcOfParabola";
     sStatusTip      = sToolTipText;
     sPixmap         = "Sketcher_Parabolic_Arc";
     eType           = ForEdit;
@@ -4252,7 +4293,7 @@ CmdSketcherCompCreateConic::CmdSketcherCompCreateConic()
     sGroup          = QT_TR_NOOP("Sketcher");
     sMenuText       = QT_TR_NOOP("Create a conic");
     sToolTipText    = QT_TR_NOOP("Create a conic in the sketch");
-    sWhatsThis      = sToolTipText;
+    sWhatsThis      = "Sketcher_CompCreateConic";
     sStatusTip      = sToolTipText;
     eType           = ForEdit;
 }
@@ -4559,13 +4600,34 @@ public:
                 //Gui::Command::openCommand("Add Pole circle");
                 
                 //Add pole
+                double guess = (EditCurve[1]-EditCurve[0]).Length()/6;
+
+                auto normalize = [](double guess) {
+                    double units=1.0;
+
+                    while (guess >= 10.0) {
+                        guess /= 10.0;
+                        units*=10.0;
+                    }
+
+                    while (guess < 1.0) {
+                        guess *= 10.0;
+                        units/=10.0;
+                    }
+
+                    return round(guess)*units;
+
+                };
+
+                guess = normalize(guess);
+
                 Gui::Command::doCommand(Gui::Command::Doc,"App.ActiveDocument.%s.addGeometry(Part.Circle(App.Vector(%f,%f,0),App.Vector(0,0,1),10),True)",
                                         sketchgui->getObject()->getNameInDocument(),
                                         EditCurve[EditCurve.size()-1].x,EditCurve[EditCurve.size()-1].y);
                 
                 if(EditCurve.size() == 2) {
                     Gui::Command::doCommand(Gui::Command::Doc,"App.ActiveDocument.%s.addConstraint(Sketcher.Constraint('Radius',%d,%f)) ",
-                                            sketchgui->getObject()->getNameInDocument(), FirstPoleGeoId, round( (EditCurve[1]-EditCurve[0]).Length()/6 ));                        
+                                            sketchgui->getObject()->getNameInDocument(), FirstPoleGeoId, guess );
                 }
 
                 Gui::Command::doCommand(Gui::Command::Doc,"App.ActiveDocument.%s.addConstraint(Sketcher.Constraint('Equal',%d,%d)) ",
@@ -4833,7 +4895,7 @@ CmdSketcherCreatePeriodicBSpline::CmdSketcherCreatePeriodicBSpline()
     sGroup          = QT_TR_NOOP("Sketcher");
     sMenuText       = QT_TR_NOOP("Create periodic B-spline");
     sToolTipText    = QT_TR_NOOP("Create a periodic B-spline via control point in the sketch.");
-    sWhatsThis      = sToolTipText;
+    sWhatsThis      = "Sketcher_CreatePeriodicBSpline";
     sStatusTip      = sToolTipText;
     sPixmap         = "Sketcher_Create_Periodic_BSpline";
     eType           = ForEdit;
@@ -4842,7 +4904,7 @@ CmdSketcherCreatePeriodicBSpline::CmdSketcherCreatePeriodicBSpline()
 void CmdSketcherCreatePeriodicBSpline::activated(int iMsg)
 {
     Q_UNUSED(iMsg);
-    ActivateHandler(getActiveGuiDocument(),new DrawSketchHandlerEllipse(1) );
+    ActivateHandler(getActiveGuiDocument(),new DrawSketchHandlerBSpline(1) );
 }
 
 bool CmdSketcherCreatePeriodicBSpline::isActive(void)
@@ -4864,7 +4926,7 @@ CmdSketcherCompCreateBSpline::CmdSketcherCompCreateBSpline()
     sGroup          = QT_TR_NOOP("Sketcher");
     sMenuText       = QT_TR_NOOP("Create a B-spline");
     sToolTipText    = QT_TR_NOOP("Create a B-spline in the sketch");
-    sWhatsThis      = sToolTipText;
+    sWhatsThis      = "Sketcher_CompCreateBSpline";
     sStatusTip      = sToolTipText;
     eType           = ForEdit;
 }
@@ -6586,6 +6648,9 @@ namespace SketcherGui {
                     case Sketcher::SketchObject::rlOtherBody:
                         this->notAllowedReason = QT_TR_NOOP("This object belongs to another body. Hold Ctrl to allow crossreferences.");
                         break;
+                    case Sketcher::SketchObject::rlOtherBodyWithLinks:
+                        this->notAllowedReason = QT_TR_NOOP("This object belongs to another body and it contains external geometry. Crossreference not allowed.");
+                        break;
                     case Sketcher::SketchObject::rlOtherPart:
                         this->notAllowedReason = QT_TR_NOOP("This object belongs to another part.");
                         break;
@@ -7161,7 +7226,7 @@ public:
             setPositionText(onSketchPos, text);
 
             sketchgui->drawEdit(EditCurve);
-            if (seekAutoConstraint(sugConstr2, onSketchPos, dV)) {
+            if (seekAutoConstraint(sugConstr2, onSketchPos, Base::Vector2d(0.f,0.f))) {
                 renderSuggestConstraintsCursor(sugConstr2);
                 return;
             }
@@ -7410,6 +7475,31 @@ bool CmdSketcherCreateOctagon::isActive(void)
     return isCreateGeoActive(getActiveGuiDocument());
 }
 
+DEF_STD_CMD_A(CmdSketcherCreateRegularPolygon);
+CmdSketcherCreateRegularPolygon::CmdSketcherCreateRegularPolygon()
+: Command("Sketcher_CreateRegularPolygon")
+{
+    sAppModule      = "Sketcher";
+    sGroup          = QT_TR_NOOP("Sketcher");
+    sMenuText       = QT_TR_NOOP("Create regular polygon");
+    sToolTipText    = QT_TR_NOOP("Create a regular polygon in the sketch");
+    sWhatsThis      = "Sketcher_CreateRegularPolygon";
+    sStatusTip      = sToolTipText;
+    sPixmap         = "CreateRegularPolygon";
+    sAccel          = "";
+    eType           = ForEdit;
+}
+
+void CmdSketcherCreateRegularPolygon::activated(int iMsg)
+{
+    Q_UNUSED(iMsg);
+    ActivateHandler(getActiveGuiDocument(),new DrawSketchHandlerRegularPolygon(8) );
+}
+
+bool CmdSketcherCreateRegularPolygon::isActive(void)
+{
+    return isCreateGeoActive(getActiveGuiDocument());
+}
 
 DEF_STD_CMD_ACLU(CmdSketcherCompCreateRegularPolygon);
 
@@ -7419,7 +7509,7 @@ CmdSketcherCompCreateRegularPolygon::CmdSketcherCompCreateRegularPolygon()
     sAppModule      = "Sketcher";
     sGroup          = QT_TR_NOOP("Sketcher");
     sMenuText       = QT_TR_NOOP("Create regular polygon");
-    sToolTipText    = QT_TR_NOOP("Create an regular polygon in the sketcher");
+    sToolTipText    = QT_TR_NOOP("Create a regular polygon in the sketcher");
     sWhatsThis      = "Sketcher_CompCreateRegularPolygon";
     sStatusTip      = sToolTipText;
     eType           = ForEdit;
@@ -7440,6 +7530,17 @@ void CmdSketcherCompCreateRegularPolygon::activated(int iMsg)
         ActivateHandler(getActiveGuiDocument(),new DrawSketchHandlerRegularPolygon(7)); break;
     case 5:
         ActivateHandler(getActiveGuiDocument(),new DrawSketchHandlerRegularPolygon(8)); break;
+    case 6:
+    {
+        // Pop-up asking for values
+        SketcherRegularPolygonDialog * srpd = new SketcherRegularPolygonDialog();
+
+        if (srpd->exec() == QDialog::Accepted)
+            ActivateHandler(getActiveGuiDocument(),new DrawSketchHandlerRegularPolygon(srpd->sides));
+
+        delete srpd;
+    }
+    break;
     default:
         return;
     }
@@ -7471,6 +7572,8 @@ Gui::Action * CmdSketcherCompCreateRegularPolygon::createAction(void)
     heptagon->setIcon(Gui::BitmapFactory().pixmap("Sketcher_CreateHeptagon"));
     QAction* octagon = pcAction->addAction(QString());
     octagon->setIcon(Gui::BitmapFactory().pixmap("Sketcher_CreateOctagon"));
+    QAction* regular = pcAction->addAction(QString());
+    regular->setIcon(Gui::BitmapFactory().pixmap("Sketcher_CreateRegularPolygon"));
 
     _pcAction = pcAction;
     languageChange();
@@ -7498,6 +7601,7 @@ void CmdSketcherCompCreateRegularPolygon::updateAction(int mode)
         a[3]->setIcon(Gui::BitmapFactory().pixmap("Sketcher_CreateHexagon"));
         a[4]->setIcon(Gui::BitmapFactory().pixmap("Sketcher_CreateHeptagon"));
         a[5]->setIcon(Gui::BitmapFactory().pixmap("Sketcher_CreateOctagon"));
+        a[6]->setIcon(Gui::BitmapFactory().pixmap("Sketcher_CreateRegularPolygon"));
         getAction()->setIcon(a[index]->icon());
         break;
     case Construction:
@@ -7507,6 +7611,7 @@ void CmdSketcherCompCreateRegularPolygon::updateAction(int mode)
         a[3]->setIcon(Gui::BitmapFactory().pixmap("Sketcher_CreateHexagon_Constr"));
         a[4]->setIcon(Gui::BitmapFactory().pixmap("Sketcher_CreateHeptagon_Constr"));
         a[5]->setIcon(Gui::BitmapFactory().pixmap("Sketcher_CreateOctagon_Constr"));
+        a[6]->setIcon(Gui::BitmapFactory().pixmap("Sketcher_CreateRegularPolygon_Constr"));
         getAction()->setIcon(a[index]->icon());
         break;
     }
@@ -7545,6 +7650,10 @@ void CmdSketcherCompCreateRegularPolygon::languageChange()
     octagon->setText(QApplication::translate("CmdSketcherCompCreateRegularPolygon","Octagon"));
     octagon->setToolTip(QApplication::translate("Sketcher_CreateOctagon","Create an octagon by its center and by one corner"));
     octagon->setStatusTip(QApplication::translate("Sketcher_CreateOctagon","Create an octagon by its center and by one corner"));
+    QAction* regular = a[6];
+    regular->setText(QApplication::translate("CmdSketcherCompCreateRegularPolygon","Regular Polygon"));
+    regular->setToolTip(QApplication::translate("Sketcher_CreateOctagon","Create a regular polygon by its center and by one corner"));
+    regular->setStatusTip(QApplication::translate("Sketcher_CreateOctagon","Create a regular polygon by its center and by one corner"));
 }
 
 bool CmdSketcherCompCreateRegularPolygon::isActive(void)

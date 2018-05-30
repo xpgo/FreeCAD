@@ -101,6 +101,7 @@
 #include "ViewProviderFeature.h"
 #include "ViewProviderPythonFeature.h"
 #include "ViewProviderDocumentObjectGroup.h"
+#include "ViewProviderDragger.h"
 #include "ViewProviderGeometryObject.h"
 #include "ViewProviderInventorObject.h"
 #include "ViewProviderVRMLObject.h"
@@ -631,6 +632,10 @@ void Application::exportTo(const char* FileName, const char* DocName, const char
         catch (const Base::PyException& e){
             // Usually thrown if the file is invalid somehow
             e.ReportException();
+            wc.restoreCursor();
+            QMessageBox::critical(getMainWindow(), QObject::tr("Export failed"),
+                QString::fromUtf8(e.what()));
+            wc.setWaitCursor();
         }
     }
     else {
@@ -929,7 +934,7 @@ void Application::onUpdate(void)
     std::map<const App::Document*, Gui::Document*>::iterator It;
     for (It = d->documents.begin();It != d->documents.end();++It)
         It->second->onUpdate();
-    // update all the independed views
+    // update all the independent views
     for (std::list<Gui::BaseView*>::iterator It2 = d->passive.begin();It2 != d->passive.end();++It2)
         (*It2)->onUpdate();
 }
@@ -1027,6 +1032,7 @@ bool Application::activateWorkbench(const char* name)
     if (oldWb && oldWb->name() == name)
         return false; // already active
 
+    Base::PyGILStateLocker lock;
     // we check for the currently active workbench and call its 'Deactivated'
     // method, if available
     PyObject* pcOldWorkbench = 0;
@@ -1035,7 +1041,6 @@ bool Application::activateWorkbench(const char* name)
     }
 
     // get the python workbench object from the dictionary
-    Base::PyGILStateLocker lock;
     PyObject* pcWorkbench = 0;
     pcWorkbench = PyDict_GetItemString(_pcWorkbenchDictionary, name);
     // test if the workbench exists
@@ -1534,6 +1539,7 @@ void Application::initTypes(void)
     Gui::ViewProviderFeature                    ::init();
     Gui::ViewProviderDocumentObjectGroup        ::init();
     Gui::ViewProviderDocumentObjectGroupPython  ::init();
+    Gui::ViewProviderDragger                    ::init();
     Gui::ViewProviderGeometryObject             ::init();
     Gui::ViewProviderInventorObject             ::init();
     Gui::ViewProviderVRMLObject                 ::init();
@@ -1691,6 +1697,19 @@ void Application::runApplication(void)
     QIcon::setThemeSearchPaths(QIcon::themeSearchPaths() << QString::fromLatin1(":/icons/FreeCAD-default"));
     QIcon::setThemeName(QLatin1String("FreeCAD-default"));
 #endif
+
+    ParameterGrp::handle hTheme = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/Bitmaps/Theme");
+    std::string searchpath = hTheme->GetASCII("SearchPath");
+    if (!searchpath.empty()) {
+        QStringList searchPaths = QIcon::themeSearchPaths();
+        searchPaths.prepend(QString::fromUtf8(searchpath.c_str()));
+        QIcon::setThemeSearchPaths(searchPaths);
+    }
+
+    std::string name = hTheme->GetASCII("Name");
+    if (!name.empty()) {
+        QIcon::setThemeName(QString::fromLatin1(name.c_str()));
+    }
 
 #if defined(FC_OS_LINUX)
     // See #0001588

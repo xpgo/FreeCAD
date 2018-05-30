@@ -51,12 +51,12 @@ else:
 #  Equipment is used to represent furniture and all kinds of electrical
 #  or hydraulic appliances in a building
 
-# presets
-Roles = ["Undefined","Furniture", "Hydro Equipment", "Electric Equipment"]
-
 
 def makeEquipment(baseobj=None,placement=None,name="Equipment"):
     "makeEquipment([baseobj,placement,name]): creates an equipment object from the given base object."
+    if not FreeCAD.ActiveDocument:
+        FreeCAD.Console.PrintError("No active document. Aborting\n")
+        return
     obj = FreeCAD.ActiveDocument.addObject("Part::FeaturePython",name)
     _Equipment(obj)
     if baseobj:
@@ -261,13 +261,12 @@ class _Equipment(ArchComponent.Component):
     def __init__(self,obj):
         ArchComponent.Component.__init__(self,obj)
         obj.addProperty("App::PropertyString","Model","Arch",QT_TRANSLATE_NOOP("App::Property","The model description of this equipment"))
-        obj.addProperty("App::PropertyString","ProductURL","Arch",QT_TRANSLATE_NOOP("App::Property","The url of the product page of this equipment"))
+        obj.addProperty("App::PropertyString","ProductURL","Arch",QT_TRANSLATE_NOOP("App::Property","The URL of the product page of this equipment"))
         obj.addProperty("App::PropertyString","StandardCode","Arch",QT_TRANSLATE_NOOP("App::Property","A standard code (MasterFormat, OmniClass,...)"))
         obj.addProperty("App::PropertyVectorList","SnapPoints","Arch",QT_TRANSLATE_NOOP("App::Property","Additional snap points for this equipment"))
         obj.addProperty("App::PropertyFloat","EquipmentPower","Arch",QT_TRANSLATE_NOOP("App::Property","The electric power needed by this equipment in Watts"))
         self.Type = "Equipment"
-        obj.Role = Roles
-        obj.Role = "Furniture"
+        obj.IfcRole = "Furniture"
         obj.Proxy = self
         obj.setEditorMode("VerticalArea",2)
         obj.setEditorMode("HorizontalArea",2)

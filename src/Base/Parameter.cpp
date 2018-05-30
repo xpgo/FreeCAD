@@ -151,7 +151,7 @@ public:
     };
 
 private:
-    // unimplemented copy ctor and assignement operator
+    // unimplemented copy ctor and assignment operator
     DOMPrintFilter(const DOMPrintFilter&);
     DOMPrintFilter & operator = (const DOMPrintFilter&);
 
@@ -319,7 +319,7 @@ Base::Reference<ParameterGrp> ParameterGrp::GetGroup(const char* Name)
     else {
         // path, split the first path
         std::string cTemp;
-        // geting the first part
+        // getting the first part
         cTemp.assign(cName,0,pos);
         // removing the first part from the original
         cName.erase(0,pos+1);
@@ -373,7 +373,7 @@ std::vector<Base::Reference<ParameterGrp> > ParameterGrp::GetGroups(void)
     return vrParamGrp;
 }
 
-/// test if this group is emty
+/// test if this group is empty
 bool ParameterGrp::IsEmpty(void) const
 {
     if ( _pGroupNode->getFirstChild() )
@@ -411,7 +411,7 @@ void  ParameterGrp::SetBool(const char* Name, bool bValue)
 {
     // find or create the Element
     DOMElement *pcElem = FindOrCreateElement(_pGroupNode,"FCBool",Name);
-    // and set the vaue
+    // and set the value
     pcElem->setAttribute(XStr("Value").unicodeForm(), XStr(bValue?"1":"0").unicodeForm());
     // trigger observer
     Notify(Name);
@@ -476,7 +476,7 @@ void  ParameterGrp::SetInt(const char* Name, long lValue)
     char cBuf[256];
     // find or create the Element
     DOMElement *pcElem = FindOrCreateElement(_pGroupNode,"FCInt",Name);
-    // and set the vaue
+    // and set the value
     sprintf(cBuf,"%li",lValue);
     pcElem->setAttribute(XStr("Value").unicodeForm(), XStr(cBuf).unicodeForm());
     // trigger observer
@@ -537,7 +537,7 @@ void  ParameterGrp::SetUnsigned(const char* Name, unsigned long lValue)
     char cBuf[256];
     // find or create the Element
     DOMElement *pcElem = FindOrCreateElement(_pGroupNode,"FCUInt",Name);
-    // and set the vaue
+    // and set the value
     sprintf(cBuf,"%lu",lValue);
     pcElem->setAttribute(XStr("Value").unicodeForm(), XStr(cBuf).unicodeForm());
     // trigger observer

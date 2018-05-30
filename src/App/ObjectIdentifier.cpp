@@ -322,7 +322,7 @@ std::string ObjectIdentifier::toString() const
 }
 
 /**
- * @brief Escape toString representation so it is suitable for being embeddded in a python command.
+ * @brief Escape toString representation so it is suitable for being embedded in a python command.
  * @return Escaped string.
  */
 
@@ -332,7 +332,7 @@ std::string ObjectIdentifier::toEscapedString() const
 }
 
 /**
- * @brief Modifiy object identifier given that document object \a oldName gets the new name \a newName.
+ * @brief Modify object identifier given that document object \a oldName gets the new name \a newName.
  * @param oldName Name of current document object
  * @param newName New name of document object
  */

@@ -712,7 +712,7 @@ CmdSketcherRestoreInternalAlignmentGeometry::CmdSketcherRestoreInternalAlignment
     sGroup          = QT_TR_NOOP("Sketcher");
     sMenuText       = QT_TR_NOOP("Show/hide internal geometry");
     sToolTipText    = QT_TR_NOOP("Show all internal geometry / hide unused internal geometry");
-    sWhatsThis      = sToolTipText;
+    sWhatsThis      = "Sketcher_RestoreInternalAlignmentGeometry";
     sStatusTip      = sToolTipText;
     sPixmap         = "Sketcher_Element_Ellipse_All";
     sAccel          = "CTRL+SHIFT+E";
@@ -810,7 +810,7 @@ CmdSketcherSymmetry::CmdSketcherSymmetry()
     sGroup          = QT_TR_NOOP("Sketcher");
     sMenuText       = QT_TR_NOOP("Symmetry");
     sToolTipText    = QT_TR_NOOP("Creates symmetric geometry with respect to the last selected line or point");
-    sWhatsThis      = sToolTipText;
+    sWhatsThis      = "Sketcher_Symmetry";
     sStatusTip      = sToolTipText;
     sPixmap         = "Sketcher_Symmetry";
     sAccel          = "";
@@ -1170,6 +1170,12 @@ void SketcherCopy::activate(bool clone)
 
     // get the needed lists and objects
     const std::vector<std::string> &SubNames = selection[0].getSubNames();
+    if (SubNames.empty()) {
+        QMessageBox::warning(Gui::getMainWindow(), QObject::tr("Wrong selection"),
+                             QObject::tr("Select elements from a single sketch."));
+        return;
+    }
+
     Sketcher::SketchObject* Obj = static_cast<Sketcher::SketchObject*>(selection[0].getObject());
 
     getSelection().clearSelection();
@@ -1287,7 +1293,7 @@ CmdSketcherCopy::CmdSketcherCopy()
     sGroup          = QT_TR_NOOP("Sketcher");
     sMenuText       = QT_TR_NOOP("Copy");
     sToolTipText    = QT_TR_NOOP("Creates a simple copy of the geometry taking as reference the last selected point");
-    sWhatsThis      = sToolTipText;
+    sWhatsThis      = "Sketcher_Copy";
     sStatusTip      = sToolTipText;
     sPixmap         = "Sketcher_Copy";
     sAccel          = "";
@@ -1324,7 +1330,7 @@ CmdSketcherClone::CmdSketcherClone()
     sGroup          = QT_TR_NOOP("Sketcher");
     sMenuText       = QT_TR_NOOP("Clone");
     sToolTipText    = QT_TR_NOOP("Creates a clone of the geometry taking as reference the last selected point");
-    sWhatsThis      = sToolTipText;
+    sWhatsThis      = "Sketcher_Clone";
     sStatusTip      = sToolTipText;
     sPixmap         = "Sketcher_Clone";
     sAccel          = "";
@@ -1604,7 +1610,7 @@ CmdSketcherRectangularArray::CmdSketcherRectangularArray()
     sGroup          = QT_TR_NOOP("Sketcher");
     sMenuText       = QT_TR_NOOP("Rectangular Array");
     sToolTipText    = QT_TR_NOOP("Creates an rectangular array pattern of the geometry taking as reference the last selected point");
-    sWhatsThis      = sToolTipText;
+    sWhatsThis      = "Sketcher_RectangularArray";
     sStatusTip      = sToolTipText;
     sPixmap         = "Sketcher_RectangularArray";
     sAccel          = "";

@@ -451,7 +451,7 @@ private:
 /** Float properties
  * This is the father of all properties handling floats.
  * Use this type only in rare cases. Mostly you want to 
- * use the more specialized types like e.g. PropertyLenth.
+ * use the more specialized types like e.g. PropertyLength.
  * These properties also fulfill the needs of the unit system.
  * See PropertyUnits.h for all properties with units.
  */
@@ -578,7 +578,7 @@ protected:
 /** Precision properties
  * This property fulfills the need of a floating value with many decimal points,
  * e.g. for holding values like Precision::Confusion(). The value has a default
- * constraint for non-negative, but can be overidden
+ * constraint for non-negative, but can be overridden
  */
 class AppExport PropertyPrecision: public PropertyFloatConstraint
 {
